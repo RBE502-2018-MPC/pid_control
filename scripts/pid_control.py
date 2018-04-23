@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped, TwistStamped, Pose
+from std_msgs.msg import Header
+from geometry_msgs.msg import PoseStamped, TwistStamped, Pose, Quaternion
 from rc_node.msg import car_input
 import tf
 from math import pi, sin, cos, sqrt
@@ -9,6 +10,9 @@ from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
 vel_des = 0.75
 
+is_sim = False
+
+curr_header = Header()
 curr_pose = Pose()
 
 # Gets the desired x,y point at time t
@@ -21,7 +25,16 @@ def circle_traj_pt(t):
 
 def on_new_pose(data):
     global curr_pose
+    global curr_header
+    if not is_sim:
+        # Need to rotate the heading because the Vicon sets an arbitrary one
+        ori = data.pose.orientation
+        eulers = euler_from_quaternion((ori.x, ori.y, ori.z, ori.w))
+        quat = quaternion_from_euler(eulers[0], eulers[1], eulers[2]-107*pi/180)
+        data.pose.orientation = Quaternion(*quat)
+    curr_header = data.header
     curr_pose = data.pose
+    print curr_pose
 
 def clamp(val, min, max):
     if val>max:
@@ -33,14 +46,17 @@ def clamp(val, min, max):
 def main():
     pub = rospy.Publisher("/car_input", car_input, queue_size=10)
     sub_pose = rospy.Subscriber("/vrpn_client_node/rc_car/pose", PoseStamped, on_new_pose)
+    pubfix = rospy.Publisher("/pose_fixed", PoseStamped, queue_size=10)
 
     rospy.init_node("pid_control")
     rate = rospy.Rate(100)
 
     car_msg = car_input()
+    pose_msg = PoseStamped()
 
     despose_broadcaster = tf.TransformBroadcaster()
     err_broadcaster = tf.TransformBroadcaster()
+    fix_broadcaster = tf.TransformBroadcaster()
 
     start_time = rospy.get_rostime()
 
@@ -84,10 +100,19 @@ def main():
         car_msg.power = err_vec[0]*2
         pub.publish(car_msg)
 
+        if not is_sim:
+            # Republish the fixed heading for better updates
+            pose_msg.header = curr_header
+            pose_msg.pose = curr_pose
+            pubfix.publish(pose_msg)
+            fix_broadcaster.sendTransform(
+                (curr_pose.position.x, curr_pose.position.y, curr_pose.position.z),
+                (curr_pose.orientation.x, curr_pose.orientation.y, curr_pose.orientation.z, curr_pose.orientation.w),
+                time,
+                "rc_car_fixed",
+                "world"
+            )
         rate.sleep()
-
-        if((time-start_time).to_sec()>40.0):
-            return
 
 if __name__ == "__main__":
     try:
