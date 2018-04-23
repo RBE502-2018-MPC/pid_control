@@ -17,11 +17,11 @@ curr_pose = Pose()
 
 # Gets the desired x,y point at time t
 def circle_traj_pt(t):
-    circle_dia = 5.0
-    offset = (0,0)
+    circle_dia = 1.25
+    offset = (0.75,0.75)
     circle_vel = pi*circle_dia/vel_des
-    return (circle_dia/2*cos(2*pi/circle_vel*t),
-            circle_dia/2*sin(2*pi/circle_vel*t))
+    return (circle_dia/2*cos(2*pi/circle_vel*t) + offset[0],
+            circle_dia/2*sin(2*pi/circle_vel*t) + offset[1])
 
 def on_new_pose(data):
     global curr_pose
@@ -87,17 +87,17 @@ def main():
         )
 
         err_broadcaster.sendTransform(
-            #(err[0], err[1], 0),
             (err_vec[0], err_vec[1], 0),
             quaternion_from_euler(0,0,0),
             time,
             "err_pose",
-            "rc_car"
+            "rc_car_fixed"
         )
 
-        print(err_vec)
-        car_msg.steer_angle = clamp(err_vec[1]*200, -60, 60)
-        car_msg.power = err_vec[0]*2
+        #print(err_vec)
+        car_msg.steer_angle = clamp(err_vec[1]*75, -40, 40)
+        car_msg.power = (err_vec[0] - 0.1)*0.7
+        print(car_msg)
         pub.publish(car_msg)
 
         if not is_sim:
@@ -112,6 +112,14 @@ def main():
                 "rc_car_fixed",
                 "world"
             )
+
+        '''if ((time - start_time).to_sec()>10.0):
+            car_msg.steer_angle=0
+            car_msg.power=0
+            for i in range(10):
+              pub.publish(car_msg)
+              rate.sleep()
+            return'''
         rate.sleep()
 
 if __name__ == "__main__":
