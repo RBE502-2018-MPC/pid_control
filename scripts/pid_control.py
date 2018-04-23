@@ -8,7 +8,7 @@ import tf
 from math import pi, sin, cos, sqrt
 from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
-vel_des = 0.75
+vel_des = 1.25
 
 is_sim = False
 
@@ -17,11 +17,20 @@ curr_pose = Pose()
 
 # Gets the desired x,y point at time t
 def circle_traj_pt(t):
+    vel_des = 0.75
     circle_dia = 1.25
     offset = (0.75,0.75)
     circle_vel = pi*circle_dia/vel_des
     return (circle_dia/2*cos(2*pi/circle_vel*t) + offset[0],
             circle_dia/2*sin(2*pi/circle_vel*t) + offset[1])
+
+def fig8_traj_pt(t):
+    vel_des = 1.25
+    circle_dia = 1.25
+    offset = (1,0)
+    circle_vel = pi*circle_dia/vel_des
+    return (circle_dia/2*sin(2*pi/circle_vel*t) + offset[0],
+            1.75*circle_dia/2*cos(pi/circle_vel*t) + offset[1])
 
 def on_new_pose(data):
     global curr_pose
@@ -64,7 +73,7 @@ def main():
         time = rospy.get_rostime()
 
         # Get the desired point for the trajectory
-        des_pt = circle_traj_pt((time-start_time).to_sec())
+        des_pt = fig8_traj_pt((time-start_time).to_sec())
 
         # Get the current point of the vehicle
         curr_pt = (curr_pose.position.x, curr_pose.position.y)
@@ -95,7 +104,7 @@ def main():
         )
 
         #print(err_vec)
-        car_msg.steer_angle = clamp(err_vec[1]*75, -40, 40)
+        car_msg.steer_angle = clamp(err_vec[1]*60, -40, 40)
         car_msg.power = (err_vec[0] - 0.1)*0.7
         print(car_msg)
         pub.publish(car_msg)
