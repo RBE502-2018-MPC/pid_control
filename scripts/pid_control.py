@@ -10,7 +10,7 @@ from tf.transformations import quaternion_from_euler, euler_from_quaternion
 
 vel_des = 1.25
 
-is_sim = False
+is_sim = True
 
 curr_header = Header()
 curr_pose = Pose()
@@ -106,6 +106,8 @@ def main():
         #print(err_vec)
         car_msg.steer_angle = clamp(err_vec[1]*60, -40, 40)
         car_msg.power = (err_vec[0] - 0.1)*0.7
+        if is_sim:
+            car_msg.power = (err_vec[0] - 0.01)*0.7
         print(car_msg)
         pub.publish(car_msg)
 
